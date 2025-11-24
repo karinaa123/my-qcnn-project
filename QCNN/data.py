@@ -226,7 +226,7 @@ def data_load_and_process(dataset, classes=[0, 1], feature_reduction='resize256'
 
         print("Training Autoencoder on Image Data...")
         autoencoder.fit(X_train, X_train,
-                        epochs=25,
+                        epochs=50,
                         batch_size=32,
                         shuffle=True,
                         validation_data=(X_test, X_test))

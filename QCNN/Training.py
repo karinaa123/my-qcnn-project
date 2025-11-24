@@ -46,7 +46,7 @@ def cost(params, X, Y, U, U_params, embedding_type, circuit, cost_fn):
 # ----------------------------------------------------------------------------------
 steps = 2000
 learning_rate = 0.001
-batch_size = 32
+batch_size = 16
 
 
 # Updated to accept Validation Data (X_test, Y_test)
@@ -60,7 +60,7 @@ def circuit_training(X_train, Y_train, X_test, Y_test, U, U_params, embedding_ty
         total_params = U_params * 7
 
     params = np.random.randn(total_params, requires_grad=True)
-    opt = qml.NesterovMomentumOptimizer(stepsize=learning_rate)
+    opt = qml.AdamOptimizer(stepsize=learning_rate)
 
     # Storage for history
     loss_history_train = []
