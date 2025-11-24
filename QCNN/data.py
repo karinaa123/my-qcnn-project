@@ -4,6 +4,18 @@ import tensorflow as tf
 from sklearn.decomposition import PCA
 from tensorflow.keras.models import Model
 from tensorflow.keras import layers, losses
+import cv2
+import glob
+import os
+from sklearn.model_selection import train_test_split
+
+# ============================================================
+# DATASET CONFIGURATION - Mini-DDSM2
+# ============================================================
+# We use expanduser("~") to automatically find your home directory (e.g., /home/yourname/)
+MINIDDSM_BASE_DIR = os.path.expanduser("~/datasets/miniddsm2/MINI-DDSM-Complete-PNG-16")
+# ============================================================
+
 pca32 = ['pca32-1', 'pca32-2', 'pca32-3', 'pca32-4']
 autoencoder32 = ['autoencoder32-1', 'autoencoder32-2', 'autoencoder32-3', 'autoencoder32-4']
 pca30 = ['pca30-1', 'pca30-2', 'pca30-3', 'pca30-4']
@@ -13,49 +25,126 @@ autoencoder16 = ['autoencoder16-1', 'autoencoder16-2', 'autoencoder16-3', 'autoe
 pca12 = ['pca12-1', 'pca12-2', 'pca12-3', 'pca12-4']
 autoencoder12 = ['autoencoder12-1', 'autoencoder12-2', 'autoencoder12-3', 'autoencoder12-4']
 
+
 def data_load_and_process(dataset, classes=[0, 1], feature_reduction='resize256', binary=True):
+    # ----------------------------------------------------------------------------------------------
+    # 1. LOAD DATASET (Updated for Mini-DDSM)
+    # ----------------------------------------------------------------------------------------------
     if dataset == 'fashion_mnist':
         (x_train, y_train), (x_test, y_test) = tf.keras.datasets.fashion_mnist.load_data()
+        x_train, x_test = x_train[..., np.newaxis] / 255.0, x_test[..., np.newaxis] / 255.0
+
     elif dataset == 'mnist':
         (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
+        x_train, x_test = x_train[..., np.newaxis] / 255.0, x_test[..., np.newaxis] / 255.0
 
-    x_train, x_test = x_train[..., np.newaxis] / 255.0, x_test[..., np.newaxis] / 255.0  # normalize the data
+    elif dataset == 'miniddsm':
+        data_path = MINIDDSM_BASE_DIR
 
-    if classes == 'odd_even':
-        odd = [1, 3, 5, 7, 9]
-        X_train = x_train
-        X_test = x_test
-        if binary == False:
-            Y_train = [1 if y in odd else 0 for y in y_train]
-            Y_test = [1 if y in odd else 0 for y in y_test]
-        elif binary == True:
-            Y_train = [1 if y in odd else -1 for y in y_train]
-            Y_test = [1 if y in odd else -1 for y in y_test]
+        images = []
+        labels = []
 
-    elif classes == '>4':
-        greater = [5, 6, 7, 8, 9]
-        X_train = x_train
-        X_test = x_test
-        if binary == False:
-            Y_train = [1 if y in greater else 0 for y in y_train]
-            Y_test = [1 if y in greater else 0 for y in y_test]
-        elif binary == True:
-            Y_train = [1 if y in greater else -1 for y in y_train]
-            Y_test = [1 if y in greater else -1 for y in y_test]
+        # Map folders to labels
+        # Cancer = 1
+        # Benign & Normal = -1 (Combined)
+        class_map = {
+            'Cancer': 1,
+            'Benign': -1,
+            'Normal': -1
+        }
 
+        print(f"Scanning for images in {data_path}...")
+
+        for folder_name, label_val in class_map.items():
+            folder_full_path = os.path.join(data_path, folder_name)
+
+            if not os.path.exists(folder_full_path):
+                print(f"Warning: Folder not found: {folder_full_path}")
+                continue
+
+            # --- CRITICAL FIX FOR YOUR FOLDER STRUCTURE ---
+            # We use "**/*.png" with recursive=True.
+            # This looks inside Cancer -> Patient_0001 -> Image.png
+            # It also strictly looks for .png files, ignoring .ics or other junk.
+            search_pattern = os.path.join(folder_full_path, "**", "*.png")
+            file_list = glob.glob(search_pattern, recursive=True)
+
+            print(f"Found {len(file_list)} images in {folder_name} (Label: {label_val})")
+
+            for file_path in file_list:
+                try:
+                    # Load as grayscale
+                    img = cv2.imread(file_path, cv2.IMREAD_GRAYSCALE)
+                    if img is not None:
+                        # Resize to 28x28 for compatibility with Quantum Circuit
+                        img = cv2.resize(img, (28, 28))
+                        images.append(img)
+                        labels.append(label_val)
+                except Exception as e:
+                    print(f"Error loading {file_path}: {e}")
+
+        x_data = np.array(images)
+        y_data = np.array(labels)
+
+        if len(x_data) == 0:
+            raise ValueError(f"No images found! Check path: {MINIDDSM_BASE_DIR}")
+
+        # Add channel dimension: (N, 28, 28) -> (N, 28, 28, 1)
+        x_data = np.expand_dims(x_data, axis=-1)
+
+        # Normalize to 0-1 range
+        x_data = x_data / 255.0
+
+        # Split into Train/Test
+        x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.2, random_state=42)
+        print(f"Data Loaded: {len(x_train)} training, {len(x_test)} testing samples.")
+
+    # ----------------------------------------------------------------------------------------------
+    # 2. FILTER CLASSES (Skipped for Mini-DDSM)
+    # ----------------------------------------------------------------------------------------------
+    if dataset != 'miniddsm':
+        if classes == 'odd_even':
+            odd = [1, 3, 5, 7, 9]
+            X_train = x_train
+            X_test = x_test
+            if binary == False:
+                Y_train = [1 if y in odd else 0 for y in y_train]
+                Y_test = [1 if y in odd else 0 for y in y_test]
+            elif binary == True:
+                Y_train = [1 if y in odd else -1 for y in y_train]
+                Y_test = [1 if y in odd else -1 for y in y_test]
+
+        elif classes == '>4':
+            greater = [5, 6, 7, 8, 9]
+            X_train = x_train
+            X_test = x_test
+            if binary == False:
+                Y_train = [1 if y in greater else 0 for y in y_train]
+                Y_test = [1 if y in greater else 0 for y in y_test]
+            elif binary == True:
+                Y_train = [1 if y in greater else -1 for y in y_train]
+                Y_test = [1 if y in greater else -1 for y in y_test]
+
+        else:
+            x_train_filter_01 = np.where((y_train == classes[0]) | (y_train == classes[1]))
+            x_test_filter_01 = np.where((y_test == classes[0]) | (y_test == classes[1]))
+
+            X_train, X_test = x_train[x_train_filter_01], x_test[x_test_filter_01]
+            Y_train, Y_test = y_train[x_train_filter_01], y_test[x_test_filter_01]
+
+            if binary == False:
+                Y_train = [1 if y == classes[0] else 0 for y in Y_train]
+                Y_test = [1 if y == classes[0] else 0 for y in Y_test]
+            elif binary == True:
+                Y_train = [1 if y == classes[0] else -1 for y in Y_train]
+                Y_test = [1 if y == classes[0] else -1 for y in Y_test]
     else:
-        x_train_filter_01 = np.where((y_train == classes[0]) | (y_train == classes[1]))
-        x_test_filter_01 = np.where((y_test == classes[0]) | (y_test == classes[1]))
+        # For Mini-DDSM, the variables are already set correctly by our custom loader
+        X_train, X_test, Y_train, Y_test = x_train, x_test, y_train, y_test
 
-        X_train, X_test = x_train[x_train_filter_01], x_test[x_test_filter_01]
-        Y_train, Y_test = y_train[x_train_filter_01], y_test[x_test_filter_01]
-
-        if binary == False:
-            Y_train = [1 if y == classes[0] else 0 for y in Y_train]
-            Y_test = [1 if y == classes[0] else 0 for y in Y_test]
-        elif binary == True:
-            Y_train = [1 if y == classes[0] else -1 for y in Y_train]
-            Y_test = [1 if y == classes[0] else -1 for y in Y_test]
+    # ----------------------------------------------------------------------------------------------
+    # 3. FEATURE REDUCTION (Convolutional Autoencoder)
+    # ----------------------------------------------------------------------------------------------
 
     if feature_reduction == 'resize256':
         X_train = tf.image.resize(X_train[:], (256, 1)).numpy()
@@ -81,14 +170,12 @@ def data_load_and_process(dataset, classes=[0, 1], feature_reduction='resize256'
         elif feature_reduction in pca12:
             pca = PCA(12)
 
-
         X_train = pca.fit_transform(X_train)
         X_test = pca.transform(X_test)
 
-        # Rescale for angle embedding
         if feature_reduction == 'pca8' or feature_reduction == 'pca16-compact' or \
                 feature_reduction in pca30 or feature_reduction in pca12:
-            X_train, X_test = (X_train - X_train.min()) * (np.pi / (X_train.max() - X_train.min())),\
+            X_train, X_test = (X_train - X_train.min()) * (np.pi / (X_train.max() - X_train.min())), \
                               (X_test - X_test.min()) * (np.pi / (X_test.max() - X_test.min()))
         return X_train, X_test, Y_train, Y_test
 
@@ -105,19 +192,26 @@ def data_load_and_process(dataset, classes=[0, 1], feature_reduction='resize256'
         elif feature_reduction in autoencoder12:
             latent_dim = 12
 
-
-
+        # --- CONVOLUTIONAL AUTOENCODER ---
         class Autoencoder(Model):
             def __init__(self, latent_dim):
                 super(Autoencoder, self).__init__()
                 self.latent_dim = latent_dim
+
                 self.encoder = tf.keras.Sequential([
+                    layers.InputLayer(input_shape=(28, 28, 1)),
+                    layers.Conv2D(16, (3, 3), activation='relu', padding='same', strides=2),
+                    layers.Conv2D(8, (3, 3), activation='relu', padding='same', strides=2),
                     layers.Flatten(),
                     layers.Dense(latent_dim, activation='relu'),
                 ])
+
                 self.decoder = tf.keras.Sequential([
-                    layers.Dense(784, activation='sigmoid'),
-                    layers.Reshape((28, 28))
+                    layers.Dense(7 * 7 * 8, activation='relu'),
+                    layers.Reshape((7, 7, 8)),
+                    layers.Conv2DTranspose(8, (3, 3), activation='relu', padding='same', strides=2),
+                    layers.Conv2DTranspose(16, (3, 3), activation='relu', padding='same', strides=2),
+                    layers.Conv2DTranspose(1, (3, 3), activation='sigmoid', padding='same'),
                 ])
 
             def call(self, x):
@@ -125,22 +219,24 @@ def data_load_and_process(dataset, classes=[0, 1], feature_reduction='resize256'
                 decoded = self.decoder(encoded)
                 return decoded
 
-        autoencoder = Autoencoder(latent_dim)
+        # -------------------------------------
 
+        autoencoder = Autoencoder(latent_dim)
         autoencoder.compile(optimizer='adam', loss=losses.MeanSquaredError())
+
+        print("Training Autoencoder on Image Data...")
         autoencoder.fit(X_train, X_train,
-                        epochs=10,
+                        epochs=25,
+                        batch_size=32,
                         shuffle=True,
                         validation_data=(X_test, X_test))
 
-        X_train, X_test = autoencoder.encoder(X_train).numpy(), autoencoder.encoder(X_test).numpy()
+        X_train = autoencoder.encoder(X_train).numpy()
+        X_test = autoencoder.encoder(X_test).numpy()
 
-        # Rescale for Angle Embedding
-        # Note this is not a rigorous rescaling method
-        if feature_reduction == 'autoencoder8' or feature_reduction == 'autoencoder16-compact' or\
+        if feature_reduction == 'autoencoder8' or feature_reduction == 'autoencoder16-compact' or \
                 feature_reduction in autoencoder30 or feature_reduction in autoencoder12:
             X_train, X_test = (X_train - X_train.min()) * (np.pi / (X_train.max() - X_train.min())), \
                               (X_test - X_test.min()) * (np.pi / (X_test.max() - X_test.min()))
 
         return X_train, X_test, Y_train, Y_test
-

@@ -1,10 +1,14 @@
+
 import data
 import Training
 import QCNN_circuit
 import Hierarchical_circuit
 import numpy as np
+import os
+import matplotlib.pyplot as plt  # Needed for plotting
 
-def accuracy_test(predictions, labels, cost_fn, binary = True):
+
+def accuracy_test(predictions, labels, cost_fn, binary=True):
     if cost_fn == 'mse':
         if binary == True:
             acc = 0
@@ -22,7 +26,7 @@ def accuracy_test(predictions, labels, cost_fn, binary = True):
 
     elif cost_fn == 'cross_entropy':
         acc = 0
-        for l,p in zip(labels, predictions):
+        for l, p in zip(labels, predictions):
             if p[0] > p[1]:
                 P = 0
             else:
@@ -139,115 +143,67 @@ def Benchmarking(dataset, classes, Unitaries, U_num_params, Encodings, circuit, 
     I = len(Unitaries)
     J = len(Encodings)
 
+    if not os.path.exists('Result'):
+        os.makedirs('Result')
+
     for i in range(I):
         for j in range(J):
             f = open('Result/result.txt', 'a')
+
             U = Unitaries[i]
             U_params = U_num_params[i]
             Encoding = Encodings[j]
             Embedding = Encoding_to_Embedding(Encoding)
 
+            print("\n--------------------------------------------------------------------------------")
+            print(f"Processing: {dataset} | {U} | {Encoding} ({Embedding})")
+            print("--------------------------------------------------------------------------------")
+
             X_train, X_test, Y_train, Y_test = data.data_load_and_process(dataset, classes=classes,
                                                                           feature_reduction=Encoding, binary=binary)
 
-            print("\n")
-            print("Loss History for " + circuit + " circuits, " + U + " " + Encoding + " with " + cost_fn)
-            loss_history, trained_params = Training.circuit_training(X_train, Y_train, U, U_params, Embedding, circuit, cost_fn)
+            print("\nStarting Quantum Circuit Training...")
+            # Updated to receive validation history and steps
+            loss_history_train, loss_history_val, val_steps, trained_params = Training.circuit_training(
+                X_train, Y_train, X_test, Y_test, U, U_params, Embedding, circuit, cost_fn
+            )
 
+            print("\nEvaluating on Test Set...")
             if circuit == 'QCNN':
                 predictions = [QCNN_circuit.QCNN(x, trained_params, U, U_params, Embedding, cost_fn) for x in X_test]
             elif circuit == 'Hierarchical':
-                predictions = [Hierarchical_circuit.Hierarchical_classifier(x, trained_params, U, U_params, Embedding, cost_fn) for x in X_test]
+                predictions = [
+                    Hierarchical_circuit.Hierarchical_classifier(x, trained_params, U, U_params, Embedding, cost_fn) for
+                    x in X_test]
 
             accuracy = accuracy_test(predictions, Y_test, cost_fn, binary)
-            print("Accuracy for " + U + " " + Encoding + " :" + str(accuracy))
+            print(f"Final Accuracy for {U} {Encoding} : {accuracy:.4f}")
 
-            f.write("Loss History for " + circuit + " circuits, " + U + " " + Encoding + " with " + cost_fn)
+            # ----------------------------------------------------------------
+            # PLOTTING THE GRAPH
+            # ----------------------------------------------------------------
+            plt.figure(figsize=(10, 6))
+            plt.plot(loss_history_train, label='Training Loss', alpha=0.5)
+            # Plot validation loss at the specific steps it was calculated
+            plt.plot(val_steps, loss_history_val, label='Validation Loss', linewidth=2, color='red')
+            plt.title(f"Loss History: {U} - {Encoding}")
+            plt.xlabel("Iteration")
+            plt.ylabel("Cost")
+            plt.legend()
+            plt.grid(True)
+
+            # Save the plot
+            plot_filename = f"Result/LossPlot_{U}_{Encoding}.png"
+            plt.savefig(plot_filename)
+            plt.close()
+            print(f"Graph saved to {plot_filename}")
+
+            # Save Results to text file
+            f.write(f"Configuration: {circuit}, {U}, {Encoding}, {cost_fn}\n")
+            f.write(f"Final Accuracy: {accuracy}\n")
+            f.write(f"Training Loss History: {loss_history_train}\n")
+            f.write(f"Validation Loss History: {loss_history_val}\n")
             f.write("\n")
-            f.write(str(loss_history))
-            f.write("\n")
-            f.write("Accuracy for " + U + " " + Encoding + " :" + str(accuracy))
-            f.write("\n")
-            f.write("\n")
-    f.close()
+            f.close()
 
-def Data_norm(dataset, classes, Encodings, binary=True):
-    J = len(Encodings)
-    Num_data = 10000
-
-    f = open('Result/data_norm.txt', 'a')
-
-    for j in range(J):
-        Encoding = Encodings[j]
-
-        X_train, X_test, Y_train, Y_test = data.data_load_and_process(dataset, classes=classes,
-                                                                          feature_reduction=Encoding, binary=binary)
-
-        if Encoding == 'pca32-3' or Encoding == 'autoencoder32-3':
-            norms_X1 = []
-            norms_X2 = []
-            for i in range(Num_data):
-                index = np.random.randint(0, len(X_train))
-                X = X_train[index]
-
-                X1 = X[:2 ** 4]
-                X2 = X[2 ** 4:2 ** 5]
-                norm_X1, norm_X2 = np.linalg.norm(X1), np.linalg.norm(X2)
-                norms_X1.append(norm_X1)
-                norms_X2.append(norm_X2)
-
-            norms_X1, norms_X2 = np.array(norms_X1), np.array(norms_X2)
-            mean_X1, stdev_X1 = np.mean(norms_X1), np.std(norms_X1)
-            mean_X2, stdev_X2 = np.mean(norms_X2), np.std(norms_X2)
-
-            if Encoding == 'pca32-3':
-                f.write("PCA32 Encoding\n")
-            elif Encoding == 'autoencoder32-3':
-                f.write("autoencoder32 Encoding\n")
-            f.write("mean of X1: " + str(mean_X1) + " standard deviation of X1: " + str(stdev_X1))
-            f.write("\n")
-            f.write("mean of X2: " + str(mean_X2) + " standard deviation of X2: " + str(stdev_X2))
-            f.write("\n")
-
-        elif Encoding == 'pca16' or Encoding == 'autoencoder16':
-            norms_X1 = []
-            norms_X2 = []
-            norms_X3 = []
-            norms_X4 = []
-            for i in range(Num_data):
-                index = np.random.randint(0, len(X_train))
-                X = X_train[index]
-
-                X1 = X[:4]
-                X2 = X[4:8]
-                X3 = X[8:12]
-                X4 = X[12:16]
-                norm_X1, norm_X2, norm_X3, norm_X4 = np.linalg.norm(X1), np.linalg.norm(X2), np.linalg.norm(
-                    X3), np.linalg.norm(X4)
-
-                norms_X1.append(norm_X1)
-                norms_X2.append(norm_X2)
-                norms_X3.append(norm_X3)
-                norms_X4.append(norm_X4)
-
-            norms_X1, norms_X2, norms_X3, norms_X4 = np.array(norms_X1), np.array(norms_X2), np.array(norms_X3), np.array(norms_X4)
-
-            mean_X1, stdev_X1 = np.mean(norms_X1), np.std(norms_X1)
-            mean_X2, stdev_X2 = np.mean(norms_X2), np.std(norms_X2)
-            mean_X3, stdev_X3 = np.mean(norms_X3), np.std(norms_X3)
-            mean_X4, stdev_X4 = np.mean(norms_X4), np.std(norms_X4)
-
-            if Encoding == 'pca16':
-                f.write("PCA16 Encoding\n")
-            elif Encoding == 'autoencoder16':
-                f.write("autoencoder16 Encoding\n")
-            f.write("mean of X1: " + str(mean_X1) + " standard deviation of X1: " + str(stdev_X1))
-            f.write("\n")
-            f.write("mean of X2: " + str(mean_X2) + " standard deviation of X2: " + str(stdev_X2))
-            f.write("\n")
-            f.write("mean of X3: " + str(mean_X3) + " standard deviation of X3: " + str(stdev_X3))
-            f.write("\n")
-            f.write("mean of X4: " + str(mean_X4) + " standard deviation of X4: " + str(stdev_X4))
-            f.write("\n")
-
-    f.close()
+    print("\nBenchmarking Complete! Check the 'Result' folder for graphs and text report.")
