@@ -76,6 +76,7 @@ def data_load_and_process(dataset, classes=[0, 1], feature_reduction='resize256'
                     # Load as grayscale
                     img = cv2.imread(file_path, cv2.IMREAD_GRAYSCALE)
                     if img is not None:
+                        print(f"Original Image Size: {img.shape}")
                         # Resize to 28x28 for compatibility with Quantum Circuit
                         img = cv2.resize(img, (28, 28))
                         images.append(img)
@@ -235,6 +236,7 @@ def data_load_and_process(dataset, classes=[0, 1], feature_reduction='resize256'
         X_test = autoencoder.encoder(X_test).numpy()
 
         if feature_reduction == 'autoencoder8' or feature_reduction == 'autoencoder16-compact' or \
+                feature_reduction in autoencoder32 or \
                 feature_reduction in autoencoder30 or feature_reduction in autoencoder12:
             X_train, X_test = (X_train - X_train.min()) * (np.pi / (X_train.max() - X_train.min())), \
                               (X_test - X_test.min()) * (np.pi / (X_test.max() - X_test.min()))

@@ -25,7 +25,7 @@ def cross_entropy(labels, predictions):
         loss = loss + c_entropy
     return -1 * loss
 
-
+# calculate loss
 def cost(params, X, Y, U, U_params, embedding_type, circuit, cost_fn):
     if circuit == 'QCNN':
         predictions = [QCNN_circuit.QCNN(x, params, U, U_params, embedding_type, cost_fn=cost_fn) for x in X]
@@ -44,9 +44,9 @@ def cost(params, X, Y, U, U_params, embedding_type, circuit, cost_fn):
 # ----------------------------------------------------------------------------------
 # TRAINING PARAMETERS
 # ----------------------------------------------------------------------------------
-steps = 2000
-learning_rate = 0.001
-batch_size = 16
+steps = 3000
+learning_rate = 0.01
+batch_size = 32
 
 
 # Updated to accept Validation Data (X_test, Y_test)
@@ -70,9 +70,12 @@ def circuit_training(X_train, Y_train, X_test, Y_test, U, U_params, embedding_ty
     print(f"Starting Training for {steps} iterations...")
 
     for it in range(steps):
-        # 1. Train on a batch
+        # 1. Train on a batch: mini sample batch
+        # Generates random integers between 0 and the total number of training examples.
         batch_index = np.random.randint(0, len(X_train), (batch_size,))
+        # Uses the random indices to pull the actual feature data for this batch.
         X_batch = [X_train[i] for i in batch_index]
+        # Uses the same random indices to pull the corresponding correct labels.
         Y_batch = [Y_train[i] for i in batch_index]
 
         params, cost_train = opt.step_and_cost(
@@ -82,7 +85,7 @@ def circuit_training(X_train, Y_train, X_test, Y_test, U, U_params, embedding_ty
 
         # 2. Validation Check (Every 50 steps)
         # We check on a random batch of the test set to save time (calculating full test set is too slow)
-        if it % 50 == 0:
+        if it % 500 == 0:
             val_batch_index = np.random.randint(0, len(X_test), (batch_size,))
             X_val_batch = [X_test[i] for i in val_batch_index]
             Y_val_batch = [Y_test[i] for i in val_batch_index]

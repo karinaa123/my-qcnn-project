@@ -24,14 +24,13 @@ classes = ['Cancer', 'Benign']
 
 # --- RUNNING MULTIPLE CIRCUITS ---
 # The code will train these one by one and save all results to Result/result.txt
-Unitaries = ['U_SU4_no_pooling', 'U_SU4', 'U_TTN','U_SO4']
-U_num_params = [15, 15, 2,6]
+Unitaries = ['U_SU4']
+U_num_params = [15]
 
 # Convolutional Autoencoder (32 features)
 Encodings = ['autoencoder32-1']
 
-# MSE is recommended for binary classification (-1 vs 1)
-cost_fn = 'mse'
+cost_fn = 'cross_entropy'
 binary = True
 
 # -----------------------------------------------------------------------------------------
