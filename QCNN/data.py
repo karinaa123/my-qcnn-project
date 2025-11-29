@@ -49,8 +49,8 @@ def data_load_and_process(dataset, classes=[0, 1], feature_reduction='resize256'
         # Benign & Normal = -1 (Combined)
         class_map = {
             'Cancer': 1,
-            'Benign': -1,
-            'Normal': -1
+            'Benign': 0,
+            'Normal': 0
         }
 
         print(f"Scanning for images in {data_path}...")
