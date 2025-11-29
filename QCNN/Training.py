@@ -46,7 +46,7 @@ def cost(params, X, Y, U, U_params, embedding_type, circuit, cost_fn):
 # ----------------------------------------------------------------------------------
 steps = 3000
 learning_rate = 0.01
-batch_size = 32
+batch_size = 16
 
 
 # Updated to accept Validation Data (X_test, Y_test)
