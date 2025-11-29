@@ -76,7 +76,7 @@ def data_load_and_process(dataset, classes=[0, 1], feature_reduction='resize256'
                     # Load as grayscale
                     img = cv2.imread(file_path, cv2.IMREAD_GRAYSCALE)
                     if img is not None:
-                        print(f"Original Image Size: {img.shape}")
+                        # print(f"Original Image Size: {img.shape}")
                         # Resize to 28x28 for compatibility with Quantum Circuit
                         img = cv2.resize(img, (28, 28))
                         images.append(img)
