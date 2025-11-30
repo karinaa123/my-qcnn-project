@@ -89,11 +89,9 @@ def circuit_training(X_train, Y_train, X_test, Y_test, U, U_params, embedding_ty
         # 2. Validation Check (Every 50 steps)
         # We check on a random batch of the test set to save time (calculating full test set is too slow)
         if (it + 1) % steps_per_epoch == 0:
-            # val_batch_index = np.random.randint(0, len(X_test), (batch_size,))
-            val_batch_size = batch_size * 4
-            val_batch_index = np.random.randint(0, len(X_test), (val_batch_size,))
-            X_val_batch = [X_test[i] for i in val_batch_index]
-            Y_val_batch = [Y_test[i] for i in val_batch_index]
+            val_batch_index = np.random.randint(0, len(X_test), (batch_size,))
+            X_val_batch = [X_test[i] for i in batch_index]
+            Y_val_batch = [Y_test[i] for i in batch_index]
 
             cost_val = cost(params, X_val_batch, Y_val_batch, U, U_params, embedding_type, circuit, cost_fn)
             loss_history_val.append(cost_val)
