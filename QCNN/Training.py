@@ -44,7 +44,7 @@ def cost(params, X, Y, U, U_params, embedding_type, circuit, cost_fn):
 # ----------------------------------------------------------------------------------
 # TRAINING PARAMETERS
 # ----------------------------------------------------------------------------------
-steps = 3000
+steps = 10000
 learning_rate = 0.01
 batch_size = 32
 
@@ -66,8 +66,11 @@ def circuit_training(X_train, Y_train, X_test, Y_test, U, U_params, embedding_ty
     loss_history_train = []
     loss_history_val = []
     steps_history = []
+    steps_per_epoch = len(X_train) // batch_size
+    print(f"Data size: {len(X_train)}, Batch size: {batch_size}")
+    print(f"1 Epoch = {steps_per_epoch} iterations.")
+    print(f"Starting Training for {steps} iterations (Approx {steps // steps_per_epoch} Epochs)...")
 
-    print(f"Starting Training for {steps} iterations...")
 
     for it in range(steps):
         # 1. Train on a batch: mini sample batch
@@ -85,8 +88,10 @@ def circuit_training(X_train, Y_train, X_test, Y_test, U, U_params, embedding_ty
 
         # 2. Validation Check (Every 50 steps)
         # We check on a random batch of the test set to save time (calculating full test set is too slow)
-        if it % 500 == 0:
-            val_batch_index = np.random.randint(0, len(X_test), (batch_size,))
+        if (it + 1) % steps_per_epoch == 0:
+            # val_batch_index = np.random.randint(0, len(X_test), (batch_size,))
+            val_batch_size = batch_size * 4
+            val_batch_index = np.random.randint(0, len(X_test), (val_batch_size,))
             X_val_batch = [X_test[i] for i in val_batch_index]
             Y_val_batch = [Y_test[i] for i in val_batch_index]
 
