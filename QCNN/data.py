@@ -221,40 +221,40 @@ def data_load_and_process(dataset, classes=[0, 1], feature_reduction='resize256'
         #            layers.Dense(latent_dim, activation='relu'),
         #        ])
             # --- 针对 128x128 输入优化的 Autoencoder ---
-            class Autoencoder(Model):
-                def __init__(self, latent_dim):
-                    super(Autoencoder, self).__init__()
-                    self.latent_dim = latent_dim
-                    # ENCODER: 把 128x128 的图片压缩成 32 个特征
-                    self.encoder = tf.keras.Sequential([
-                        layers.InputLayer(input_shape=(128, 128, 1)),
-                        # 128x128 -> 64x64
-                        layers.Conv2D(32, (3, 3), activation='relu', padding='same', strides=2),
-                        # 64x64 -> 32x32
-                        layers.Conv2D(16, (3, 3), activation='relu', padding='same', strides=2),
-                        # 32x32 -> 16x16
-                        layers.Conv2D(8, (3, 3), activation='relu', padding='same', strides=2),
-                        # 16x16 -> 8x8
-                        # 2048 -> 512
-                        layers.Conv2D(4, (3, 3), activation='relu', padding='same', strides=2),
-                        layers.Flatten(),
-                        # 8*8*4 = 256
-                        layers.Dense(latent_dim, activation='relu'),
-                    ])
+        class Autoencoder(Model):
+            def __init__(self, latent_dim):
+                super(Autoencoder, self).__init__()
+                self.latent_dim = latent_dim
+                # ENCODER: 把 128x128 的图片压缩成 32 个特征
+                self.encoder = tf.keras.Sequential([
+                    layers.InputLayer(input_shape=(128, 128, 1)),
+                    # 128x128 -> 64x64
+                    layers.Conv2D(32, (3, 3), activation='relu', padding='same', strides=2),
+                    # 64x64 -> 32x32
+                    layers.Conv2D(16, (3, 3), activation='relu', padding='same', strides=2),
+                    # 32x32 -> 16x16
+                    layers.Conv2D(8, (3, 3), activation='relu', padding='same', strides=2),
+                    # 16x16 -> 8x8
+                    # 2048 -> 512
+                    layers.Conv2D(4, (3, 3), activation='relu', padding='same', strides=2),
+                    layers.Flatten(),
+                    # 8*8*4 = 256
+                    layers.Dense(latent_dim, activation='relu'),
+                ])
 
                     # DECODER: 把 32 个特征还原回 128x128 (用于训练 Autoencoder)
-                    self.decoder = tf.keras.Sequential([
-                        layers.Dense(8 * 8 * 4, activation='relu'),
-                        layers.Reshape((8, 8, 4)),
-                        # 8x8 -> 16x16
-                        layers.Conv2DTranspose(4, (3, 3), activation='relu', padding='same', strides=2),
-                        # 16x16 -> 32x32
-                        layers.Conv2DTranspose(8, (3, 3), activation='relu', padding='same', strides=2),
-                        # 32x32 -> 64x64
-                        layers.Conv2DTranspose(16, (3, 3), activation='relu', padding='same', strides=2),
-                        # 64x64 -> 128x128
-                        layers.Conv2DTranspose(1, (3, 3), activation='sigmoid', padding='same', strides=2),
-                    ])
+                self.decoder = tf.keras.Sequential([
+                    layers.Dense(8 * 8 * 4, activation='relu'),
+                    layers.Reshape((8, 8, 4)),
+                    # 8x8 -> 16x16
+                    layers.Conv2DTranspose(4, (3, 3), activation='relu', padding='same', strides=2),
+                    # 16x16 -> 32x32
+                    layers.Conv2DTranspose(8, (3, 3), activation='relu', padding='same', strides=2),
+                    # 32x32 -> 64x64
+                    layers.Conv2DTranspose(16, (3, 3), activation='relu', padding='same', strides=2),
+                    # 64x64 -> 128x128
+                    layers.Conv2DTranspose(1, (3, 3), activation='sigmoid', padding='same', strides=2),
+                ])
             def call(self, x):
                 encoded = self.encoder(x)
                 decoded = self.decoder(encoded)
