@@ -69,7 +69,8 @@ def data_load_and_process(dataset, classes=[0, 1], feature_reduction='resize256'
                 try:
                     img = cv2.imread(file_path, cv2.IMREAD_GRAYSCALE)
                     if img is not None:
-                        img = cv2.resize(img, (28, 28))
+                        # img = cv2.resize(img, (28, 28))
+                        img = cv2.resize(img, (128, 128))
                         images.append(img)
                         labels.append(label_val)
                 except Exception as e:
@@ -107,19 +108,12 @@ def data_load_and_process(dataset, classes=[0, 1], feature_reduction='resize256'
         # ------------------------------------------------------------
 
         # Add channel dimension: (N, 28, 28) -> (N, 28, 28, 1)
-
         x_data = np.expand_dims(x_data, axis=-1)
-
         # Normalize to 0-1 range (Standard for neural networks)
-
         x_data = x_data / 255.0
-
         # Split into Train and Test
-
         x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.2, random_state=42)
-
         print(f"Train/Test Split: {len(x_train)} training, {len(x_test)} testing samples.")
-
     # ----------------------------------------------------------------------------------------------
     # 2. FILTER CLASSES (Skipped for Mini-DDSM)
     # ----------------------------------------------------------------------------------------------
@@ -214,31 +208,72 @@ def data_load_and_process(dataset, classes=[0, 1], feature_reduction='resize256'
             latent_dim = 12
 
         # --- CONVOLUTIONAL AUTOENCODER ---
-        class Autoencoder(Model):
-            def __init__(self, latent_dim):
-                super(Autoencoder, self).__init__()
-                self.latent_dim = latent_dim
+        # class Autoencoder(Model):
+        #    def __init__(self, latent_dim):
+        #        super(Autoencoder, self).__init__()
+        #        self.latent_dim = latent_dim
 
-                self.encoder = tf.keras.Sequential([
-                    layers.InputLayer(input_shape=(28, 28, 1)),
-                    layers.Conv2D(16, (3, 3), activation='relu', padding='same', strides=2),
-                    layers.Conv2D(8, (3, 3), activation='relu', padding='same', strides=2),
-                    layers.Flatten(),
-                    layers.Dense(latent_dim, activation='relu'),
-                ])
+        #        self.encoder = tf.keras.Sequential([
+        #           layers.InputLayer(input_shape=(28, 28, 1)),
+        #            layers.Conv2D(16, (3, 3), activation='relu', padding='same', strides=2),
+        #            layers.Conv2D(8, (3, 3), activation='relu', padding='same', strides=2),
+        #            layers.Flatten(),
+        #            layers.Dense(latent_dim, activation='relu'),
+        #        ])
+            # --- 针对 128x128 输入优化的 Autoencoder ---
+            class Autoencoder(Model):
+                def __init__(self, latent_dim):
+                    super(Autoencoder, self).__init__()
+                    self.latent_dim = latent_dim
+                    # ENCODER: 把 128x128 的图片压缩成 32 个特征
+                    self.encoder = tf.keras.Sequential([
+                        layers.InputLayer(input_shape=(128, 128, 1)),
+                        # 128x128 -> 64x64
+                        layers.Conv2D(32, (3, 3), activation='relu', padding='same', strides=2),
+                        # 64x64 -> 32x32
+                        layers.Conv2D(16, (3, 3), activation='relu', padding='same', strides=2),
+                        # 32x32 -> 16x16
+                        layers.Conv2D(8, (3, 3), activation='relu', padding='same', strides=2),
+                        # 16x16 -> 8x8
+                        # 2048 -> 512
+                        layers.Conv2D(4, (3, 3), activation='relu', padding='same', strides=2),
+                        layers.Flatten(),
+                        # 8*8*4 = 256
+                        layers.Dense(latent_dim, activation='relu'),
+                    ])
 
-                self.decoder = tf.keras.Sequential([
-                    layers.Dense(7 * 7 * 8, activation='relu'),
-                    layers.Reshape((7, 7, 8)),
-                    layers.Conv2DTranspose(8, (3, 3), activation='relu', padding='same', strides=2),
-                    layers.Conv2DTranspose(16, (3, 3), activation='relu', padding='same', strides=2),
-                    layers.Conv2DTranspose(1, (3, 3), activation='sigmoid', padding='same'),
-                ])
-
+                    # DECODER: 把 32 个特征还原回 128x128 (用于训练 Autoencoder)
+                    self.decoder = tf.keras.Sequential([
+                        layers.Dense(8 * 8 * 4, activation='relu'),
+                        layers.Reshape((8, 8, 4)),
+                        # 8x8 -> 16x16
+                        layers.Conv2DTranspose(4, (3, 3), activation='relu', padding='same', strides=2),
+                        # 16x16 -> 32x32
+                        layers.Conv2DTranspose(8, (3, 3), activation='relu', padding='same', strides=2),
+                        # 32x32 -> 64x64
+                        layers.Conv2DTranspose(16, (3, 3), activation='relu', padding='same', strides=2),
+                        # 64x64 -> 128x128
+                        layers.Conv2DTranspose(1, (3, 3), activation='sigmoid', padding='same', strides=2),
+                    ])
             def call(self, x):
                 encoded = self.encoder(x)
                 decoded = self.decoder(encoded)
                 return decoded
+
+
+
+            #     self.decoder = tf.keras.Sequential([
+            #         layers.Dense(7 * 7 * 8, activation='relu'),
+            #         layers.Reshape((7, 7, 8)),
+            #         layers.Conv2DTranspose(8, (3, 3), activation='relu', padding='same', strides=2),
+            #         layers.Conv2DTranspose(16, (3, 3), activation='relu', padding='same', strides=2),
+            #         layers.Conv2DTranspose(1, (3, 3), activation='sigmoid', padding='same'),
+            #     ])
+            #
+            # def call(self, x):
+            #     encoded = self.encoder(x)
+            #     decoded = self.decoder(encoded)
+            #     return decoded
 
         # -------------------------------------
 
@@ -256,7 +291,6 @@ def data_load_and_process(dataset, classes=[0, 1], feature_reduction='resize256'
         X_test = autoencoder.encoder(X_test).numpy()
 
         if feature_reduction == 'autoencoder8' or feature_reduction == 'autoencoder16-compact' or \
-                feature_reduction in autoencoder32 or \
                 feature_reduction in autoencoder30 or feature_reduction in autoencoder12:
             X_train, X_test = (X_train - X_train.min()) * (np.pi / (X_train.max() - X_train.min())), \
                               (X_test - X_test.min()) * (np.pi / (X_test.max() - X_test.min()))

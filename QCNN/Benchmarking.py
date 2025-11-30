@@ -188,7 +188,7 @@ def Benchmarking(dataset, classes, Unitaries, U_num_params, Encodings, circuit, 
             plt.plot(val_steps, loss_history_val, label='Validation Loss', linewidth=2, color='red')
             plt.title(f"Loss History: {U} - {Encoding}")
             plt.xlabel("Iteration")
-            plt.ylabel("Cost")
+            plt.ylabel("Loss")
             plt.legend()
             plt.grid(True)
 

@@ -46,7 +46,7 @@ def cost(params, X, Y, U, U_params, embedding_type, circuit, cost_fn):
 # ----------------------------------------------------------------------------------
 steps = 3000
 learning_rate = 0.01
-batch_size = 16
+batch_size = 32
 
 
 # Updated to accept Validation Data (X_test, Y_test)
@@ -94,6 +94,6 @@ def circuit_training(X_train, Y_train, X_test, Y_test, U, U_params, embedding_ty
             loss_history_val.append(cost_val)
             steps_history.append(it)
 
-            print(f"Iteration: {it:4d} | Train Cost: {cost_train:.4f} | Val Cost: {cost_val:.4f}")
+            print(f"Iteration: {it:4d} | Train Loss: {cost_train:.4f} | Val Loss: {cost_val:.4f}")
 
     return loss_history_train, loss_history_val, steps_history, params
