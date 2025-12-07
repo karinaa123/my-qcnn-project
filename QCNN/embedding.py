@@ -15,12 +15,23 @@ def data_embedding(X, embedding_type='Amplitude'):
         AngleEmbedding(X[8:16], wires=range(8), rotation='Y')
 
     # Hybrid Direct Embedding (HDE)
+        # Hybrid Direct Embedding (HDE)
     elif embedding_type == 'Amplitude-Hybrid4-1' or embedding_type == 'Amplitude-Hybrid4-2' or \
-            embedding_type == 'Amplitude-Hybrid4-3' or embedding_type == 'Amplitude-Hybrid4-4':
+         embedding_type == 'Amplitude-Hybrid4-3' or embedding_type == 'Amplitude-Hybrid4-4':
         X1 = X[:2 ** 4]
         X2 = X[2 ** 4:2 ** 5]
         norm_X1, norm_X2 = np.linalg.norm(X1), np.linalg.norm(X2)
-        X1, X2 = X1 / norm_X1, X2 / norm_X2
+
+            # Handle zero-norm vectors to prevent division by zero
+        eps = 1e-10
+        if norm_X1 < eps:
+            X1 = np.ones_like(X1) / np.sqrt(len(X1))  # Uniform distribution
+        else:
+            X1 = X1 / norm_X1
+        if norm_X2 < eps:
+            X2 = np.ones_like(X2) / np.sqrt(len(X2))  # Uniform distribution
+        else:
+            X2 = X2 / norm_X2
 
         if embedding_type == 'Amplitude-Hybrid4-1':
             MottonenStatePreparation(X1, wires=[0, 1, 2, 3])
