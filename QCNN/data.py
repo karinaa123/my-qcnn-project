@@ -260,23 +260,6 @@ def data_load_and_process(dataset, classes=[0, 1], feature_reduction='resize256'
                 decoded = self.decoder(encoded)
                 return decoded
 
-
-
-            #     self.decoder = tf.keras.Sequential([
-            #         layers.Dense(7 * 7 * 8, activation='relu'),
-            #         layers.Reshape((7, 7, 8)),
-            #         layers.Conv2DTranspose(8, (3, 3), activation='relu', padding='same', strides=2),
-            #         layers.Conv2DTranspose(16, (3, 3), activation='relu', padding='same', strides=2),
-            #         layers.Conv2DTranspose(1, (3, 3), activation='sigmoid', padding='same'),
-            #     ])
-            #
-            # def call(self, x):
-            #     encoded = self.encoder(x)
-            #     decoded = self.decoder(encoded)
-            #     return decoded
-
-        # -------------------------------------
-
         autoencoder = Autoencoder(latent_dim)
         autoencoder.compile(optimizer='adam', loss=losses.MeanSquaredError())
 
@@ -289,6 +272,19 @@ def data_load_and_process(dataset, classes=[0, 1], feature_reduction='resize256'
 
         X_train = autoencoder.encoder(X_train).numpy()
         X_test = autoencoder.encoder(X_test).numpy()
+        # Check reconstruction quality
+        reconstructed = autoencoder.predict(X_test[:5])
+        print(f"Reconstruction MSE: {np.mean((X_test[:5] - reconstructed) ** 2)}")
+
+        # Visualize
+        import matplotlib.pyplot as plt
+        fig, axes = plt.subplots(2, 5, figsize=(15, 6))
+        for i in range(5):
+            axes[0, i].imshow(X_test[i].squeeze(), cmap='gray')
+            axes[0, i].set_title('Original')
+            axes[1, i].imshow(reconstructed[i].squeeze(), cmap='gray')
+            axes[1, i].set_title('Reconstructed')
+        plt.savefig('autoencoder_check.png')
 
         if feature_reduction == 'autoencoder8' or feature_reduction == 'autoencoder16-compact' or \
                 feature_reduction in autoencoder32 or \
