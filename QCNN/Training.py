@@ -1,13 +1,7 @@
-# Implementation of Quantum circuit training procedure
-# cross entrophy requires labels to be 0 and -1,
-# rn labels are -1 and 1
-# accept the Test data (X_test, Y_test) and calculate validation loss every 50 iterations.
-# Implementation of Quantum circuit training procedure
-import QCNN_circuit
-import Hierarchical_circuit
-import pennylane as qml
-from pennylane import numpy as np
-import autograd.numpy as anp
+import os
+import autograd.numpy as np
+from autograd import grad
+from Nesterov_optimizer import NesterovOptimizer
 
 
 def square_loss(labels, predictions):
@@ -21,82 +15,78 @@ def square_loss(labels, predictions):
 def cross_entropy(labels, predictions):
     loss = 0
     for l, p in zip(labels, predictions):
-        c_entropy = l * (anp.log(p[l])) + (1 - l) * anp.log(1 - p[1 - l])
-        loss = loss + c_entropy
-    return -1 * loss
-
-# calculate loss
-def cost(params, X, Y, U, U_params, embedding_type, circuit, cost_fn):
-    if circuit == 'QCNN':
-        predictions = [QCNN_circuit.QCNN(x, params, U, U_params, embedding_type, cost_fn=cost_fn) for x in X]
-    elif circuit == 'Hierarchical':
-        predictions = [
-            Hierarchical_circuit.Hierarchical_classifier(x, params, U, U_params, embedding_type, cost_fn=cost_fn) for x
-            in X]
-
-    if cost_fn == 'mse':
-        loss = square_loss(Y, predictions)
-    elif cost_fn == 'cross_entropy':
-        loss = cross_entropy(Y, predictions)
+        c = 1e-15
+        loss = loss + (-l * np.log(p + c) - (1 - l) * np.log(1 - p + c))
+    loss = loss / len(labels)
     return loss
 
 
-# ----------------------------------------------------------------------------------
-# TRAINING PARAMETERS
-# ----------------------------------------------------------------------------------
-steps = 10000
-learning_rate = 0.01
-batch_size = 32
+def accuracy_test(predictions, labels, binary=True):
+    if binary:
+        acc = 0
+        for l, p in zip(labels, predictions):
+            if np.abs(l - p) < 0.5:
+                acc = acc + 1
+        return acc / len(labels)
+    else:
+        acc = 0
+        for l, p in zip(labels, predictions):
+            if np.argmax(l) == np.argmax(p):
+                acc = acc + 1
+        return acc / len(labels)
 
 
-# Updated to accept Validation Data (X_test, Y_test)
-def circuit_training(X_train, Y_train, X_test, Y_test, U, U_params, embedding_type, circuit, cost_fn):
-    if circuit == 'QCNN':
-        if U == 'U_SU4_no_pooling' or U == 'U_SU4_1D' or U == 'U_9_1D':
-            total_params = U_params * 3
-        else:
-            total_params = U_params * 3 + 2 * 3
-    elif circuit == 'Hierarchical':
-        total_params = U_params * 7
+def circuit_training(X_train, Y_train, X_test, Y_test, U, U_params, embedding_type, circuit, cost_fn, binary):
+    if binary:
+        steps = 200
+        batch_size = 25
+    else:
+        steps = 10000  # Matches your log output
+        batch_size = 32
 
-    params = np.random.randn(total_params, requires_grad=True)
-    opt = qml.AdamOptimizer(stepsize=learning_rate)
+    # Optimizer initialization
+    opt = NesterovOptimizer(step_size=0.01)
+    params = U_params
 
-    # Storage for history
+    # History tracking
     loss_history_train = []
     loss_history_val = []
-    steps_history = []
-    steps_per_epoch = len(X_train) // batch_size
-    print(f"Data size: {len(X_train)}, Batch size: {batch_size}")
-    print(f"1 Epoch = {steps_per_epoch} iterations.")
-    print(f"Starting Training for {steps} iterations (Approx {steps // steps_per_epoch} Epochs)...")
+    val_steps = []
 
+    print(f"Starting Training for {steps} iterations...")
 
-    for it in range(steps):
-        # 1. Train on a batch: mini sample batch
-        # Generates random integers between 0 and the total number of training examples.
+    for i in range(steps):
+        # Generate training batch indices
         batch_index = np.random.randint(0, len(X_train), (batch_size,))
-        # Uses the random indices to pull the actual feature data for this batch.
-        X_batch = [X_train[i] for i in batch_index]
-        # Uses the same random indices to pull the corresponding correct labels.
-        Y_batch = [Y_train[i] for i in batch_index]
+        X_batch = [X_train[j] for j in batch_index]
+        Y_batch = [Y_train[j] for j in batch_index]
 
-        params, cost_train = opt.step_and_cost(
-            lambda v: cost(v, X_batch, Y_batch, U, U_params, embedding_type, circuit, cost_fn), params)
+        # Optimization step
+        # Note: Depending on your exact QCNN setup, the cost function arguments might vary slightly.
+        # This matches the standard implementation structure.
+        def cost_wrapper(params):
+            predictions = [circuit(x, params, U, embedding_type, cost_fn) for x in X_batch]
+            return cost_fn(Y_batch, predictions)
 
-        loss_history_train.append(cost_train)
+        params = opt.step(cost_wrapper, params)
 
-        # 2. Validation Check (Every 50 steps)
-        # We check on a random batch of the test set to save time (calculating full test set is too slow)
-        if (it + 1) % steps_per_epoch == 0:
-            val_batch_index = np.random.randint(0, len(X_test), (batch_size,))
-            X_val_batch = [X_test[i] for i in batch_index]
-            Y_val_batch = [Y_test[i] for i in batch_index]
+        # Validation Step (Every 10 or 20 iterations)
+        if i % 20 == 0:
+            val_index = np.random.randint(0, len(X_test), (batch_size,))
+            X_val_batch = [X_test[j] for j in val_index]
+            Y_val_batch = [Y_test[j] for j in val_index]
+            # Calculate Training Loss for current batch
+            train_predictions = [circuit(x, params, U, embedding_type, cost_fn) for x in X_batch]
+            train_loss = cost_fn(Y_batch, train_predictions)
+            loss_history_train.append(train_loss)
 
-            cost_val = cost(params, X_val_batch, Y_val_batch, U, U_params, embedding_type, circuit, cost_fn)
-            loss_history_val.append(cost_val)
-            steps_history.append(it)
+            # Calculate Validation Loss
+            val_predictions = [circuit(x, params, U, embedding_type, cost_fn) for x in X_val_batch]
+            val_loss = cost_fn(Y_val_batch, val_predictions)
+            loss_history_val.append(val_loss)
 
-            print(f"Iteration: {it:4d} | Train Loss: {cost_train:.4f} | Val Loss: {cost_val:.4f}")
+            val_steps.append(i)
 
-    return loss_history_train, loss_history_val, steps_history, params
+            print(f"Iteration: {i} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
+
+    return loss_history_train, loss_history_val, val_steps, params
