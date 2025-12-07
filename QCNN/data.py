@@ -264,15 +264,15 @@ def data_load_and_process(dataset, classes=[0, 1], feature_reduction='resize256'
         autoencoder.compile(optimizer='adam', loss=losses.MeanSquaredError())
 
         print("Training Autoencoder on Image Data...")
+        # Add a smaller batch size to help with the OOM (Out of Memory) warnings
         autoencoder.fit(X_train, X_train,
                         epochs=50,
                         batch_size=32,
                         shuffle=True,
                         validation_data=(X_test, X_test))
 
-        X_train = autoencoder.encoder(X_train).numpy()
-        X_test = autoencoder.encoder(X_test).numpy()
-        # Check reconstruction quality
+        # --- FIX: CHECK RECONSTRUCTION *BEFORE* OVERWRITING X_TEST ---
+        print("Checking reconstruction quality...")
         reconstructed = autoencoder.predict(X_test[:5])
         print(f"Reconstruction MSE: {np.mean((X_test[:5] - reconstructed) ** 2)}")
 
@@ -285,6 +285,12 @@ def data_load_and_process(dataset, classes=[0, 1], feature_reduction='resize256'
             axes[1, i].imshow(reconstructed[i].squeeze(), cmap='gray')
             axes[1, i].set_title('Reconstructed')
         plt.savefig('autoencoder_check.png')
+        plt.close()  # Close plot to free memory
+        # -------------------------------------------------------------
+        # NOW it is safe to overwrite X_train and X_test with the compressed features
+        print("Encoding images to quantum features...")
+        X_train = autoencoder.encoder(X_train).numpy()
+        X_test = autoencoder.encoder(X_test).numpy()
 
         if feature_reduction == 'autoencoder8' or feature_reduction == 'autoencoder16-compact' or \
                 feature_reduction in autoencoder32 or \
