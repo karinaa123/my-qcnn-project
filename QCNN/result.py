@@ -17,7 +17,7 @@ Note: when using 'mse' as cost_fn binary="True" is recommended, when using 'cros
 # CONFIGURATION FOR MINI-DDSM BREAST CANCER DETECTION
 # -----------------------------------------------------------------------------------------
 
-dataset = 'miniddsm'
+dataset = 'miniddsm2'
 
 # Classes (Normal/Benign are merged into 'Benign' by data.py)
 classes = ['Cancer', 'Benign']
