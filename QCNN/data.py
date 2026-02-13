@@ -85,8 +85,8 @@ def load_images_from_folder(folder_path, images, labels, label, img_size, max_co
             if max_count and count >= max_count:
                 return count
 
-            # --- KEY FIX HERE: EXCLUDE MASKS ---
-            # We check if 'mask' is in the filename.
+            # if 'mask' is in the filename.
+            # mask is for segemantion so it's excluded in trainning and testing data
             if filename.lower().endswith('.png') and 'mask' not in filename.lower():
                 try:
                     img_path = os.path.join(root, filename)

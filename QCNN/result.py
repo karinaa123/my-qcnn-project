@@ -31,7 +31,7 @@ U_num_params = [15]
 Encodings = ['pca8']
 
 cost_fn = 'cross_entropy'
-binary = True
+binary = False
 
 # -----------------------------------------------------------------------------------------
 # EXECUTION
