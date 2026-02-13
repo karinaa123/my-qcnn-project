@@ -165,7 +165,7 @@ def Benchmarking(dataset, classes, Unitaries, U_num_params, Encodings, circuit, 
             print("\nStarting Quantum Circuit Training...")
             # Updated to receive validation history and steps
             loss_history_train, loss_history_val, val_steps, trained_params = Training.circuit_training(
-                X_train, Y_train, X_test, Y_test, U, U_params, Embedding, circuit, cost_fn
+                X_train, Y_train, U, U_params, Embedding, circuit, cost_fn
             )
 
             print("\nEvaluating on Test Set...")
@@ -179,14 +179,6 @@ def Benchmarking(dataset, classes, Unitaries, U_num_params, Encodings, circuit, 
             accuracy = accuracy_test(predictions, Y_test, cost_fn, binary)
             print(f"Final Accuracy for {U} {Encoding} : {accuracy:.4f}")
 
-            # ----------------------------------------------------------------
-            # PLOTTING THE GRAPH
-            # ----------------------------------------------------------------
-            # plt.figure(figsize=(10, 6))
-            # plt.plot(loss_history_train, label='Training Loss', alpha=0.5)
-            # ----------------------------------------------------------------
-            # PLOTTING THE GRAPH (Smoothed)
-            # ----------------------------------------------------------------
             plt.figure(figsize=(10, 6))
             def moving_average(data, window_size=50):
                 return np.convolve(data, np.ones(window_size) / window_size, mode='valid')
@@ -204,14 +196,6 @@ def Benchmarking(dataset, classes, Unitaries, U_num_params, Encodings, circuit, 
             plt.ylabel("Cost")
             plt.legend()
             plt.grid(True)
-
-            # Plot validation loss at the specific steps it was calculated
-            # plt.plot(val_steps, loss_history_val, label='Validation Loss', linewidth=2, color='red')
-            # plt.title(f"Loss History: {U} - {Encoding}")
-            # plt.xlabel("Iteration")
-            # plt.ylabel("Loss")
-            # plt.legend()
-            # plt.grid(True)
 
             # Save the plot
             plot_filename = f"Result/LossPlot_{U}_{Encoding}.png"
